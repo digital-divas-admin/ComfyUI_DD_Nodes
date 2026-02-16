@@ -1,0 +1,14 @@
+[project]
+name = "comfyui-dd-nodes"
+description = "Custom utility nodes for ComfyUI by Digital Divas."
+version = "0.1.0"
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/digital-divas-admin/ComfyUI_DD_Nodes"
+
+[tool.comfy]
+PublisherId = "digital-divas"
+DisplayName = "DD Nodes"
+Icon = ""

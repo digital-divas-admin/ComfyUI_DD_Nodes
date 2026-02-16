@@ -1,3 +1,6 @@
+import math
+
+
 class DD_IntMath:
     """Performs basic math operations on two integers."""
 
@@ -7,25 +10,25 @@ class DD_IntMath:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "a": ("INT", {"default": 0, "min": -2**31, "max": 2**31 - 1}),
-                "b": ("INT", {"default": 0, "min": -2**31, "max": 2**31 - 1}),
+                "a": ("INT", {"default": 0}),
+                "b": ("INT", {"default": 0}),
                 "operation": (cls.OPERATIONS, {"default": "add"}),
             },
         }
 
     RETURN_TYPES = ("INT", "FLOAT")
     RETURN_NAMES = ("int_result", "float_result")
-    FUNCTION = "compute"
+    FUNCTION = "execute"
     CATEGORY = "DD Nodes/Math"
 
-    def compute(self, a, b, operation):
+    def execute(self, a, b, operation):
         ops = {
             "add": lambda: a + b,
             "subtract": lambda: a - b,
             "multiply": lambda: a * b,
             "divide": lambda: a / b if b != 0 else 0,
             "modulo": lambda: a % b if b != 0 else 0,
-            "power": lambda: a**b,
+            "power": lambda: a ** b,
             "min": lambda: min(a, b),
             "max": lambda: max(a, b),
         }
@@ -42,24 +45,24 @@ class DD_FloatMath:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "a": ("FLOAT", {"default": 0.0, "min": -1e10, "max": 1e10, "step": 0.01}),
-                "b": ("FLOAT", {"default": 0.0, "min": -1e10, "max": 1e10, "step": 0.01}),
+                "a": ("FLOAT", {"default": 0.0, "step": 0.01}),
+                "b": ("FLOAT", {"default": 0.0, "step": 0.01}),
                 "operation": (cls.OPERATIONS, {"default": "add"}),
             },
         }
 
     RETURN_TYPES = ("FLOAT", "INT")
     RETURN_NAMES = ("float_result", "int_result")
-    FUNCTION = "compute"
+    FUNCTION = "execute"
     CATEGORY = "DD Nodes/Math"
 
-    def compute(self, a, b, operation):
+    def execute(self, a, b, operation):
         ops = {
             "add": lambda: a + b,
             "subtract": lambda: a - b,
             "multiply": lambda: a * b,
             "divide": lambda: a / b if b != 0 else 0.0,
-            "power": lambda: a**b,
+            "power": lambda: a ** b,
             "min": lambda: min(a, b),
             "max": lambda: max(a, b),
         }
@@ -74,16 +77,16 @@ class DD_IntToFloat:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "value": ("INT", {"default": 0, "min": -2**31, "max": 2**31 - 1}),
+                "value": ("INT", {"default": 0}),
             },
         }
 
     RETURN_TYPES = ("FLOAT",)
     RETURN_NAMES = ("float_value",)
-    FUNCTION = "convert"
+    FUNCTION = "execute"
     CATEGORY = "DD Nodes/Math"
 
-    def convert(self, value):
+    def execute(self, value):
         return (float(value),)
 
 
@@ -96,19 +99,17 @@ class DD_FloatToInt:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "value": ("FLOAT", {"default": 0.0, "min": -1e10, "max": 1e10, "step": 0.01}),
+                "value": ("FLOAT", {"default": 0.0, "step": 0.01}),
                 "mode": (cls.ROUND_MODES, {"default": "round"}),
             },
         }
 
     RETURN_TYPES = ("INT",)
     RETURN_NAMES = ("int_value",)
-    FUNCTION = "convert"
+    FUNCTION = "execute"
     CATEGORY = "DD Nodes/Math"
 
-    def convert(self, value, mode):
-        import math
-
+    def execute(self, value, mode):
         modes = {
             "round": lambda: round(value),
             "floor": lambda: math.floor(value),

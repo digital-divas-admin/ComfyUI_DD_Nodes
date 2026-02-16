@@ -4,25 +4,31 @@ Custom nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI) by Digital
 
 ## Nodes
 
-### Text Nodes
-- **DD Text Concatenate** - Concatenates two text strings with an optional separator
-- **DD Text Replace** - Replaces occurrences of a search string within text
-- **DD Show Text** - Displays text output in the UI
+### Text
+| Node | Description |
+|------|-------------|
+| DD Text Concatenate | Join two strings with an optional separator |
+| DD Text Replace | Find and replace within text |
+| DD Show Text | Display text in the UI |
 
-### Image Nodes
-- **DD Image Resize** - Resizes an image to specified dimensions (nearest, bilinear, bicubic, area)
-- **DD Image Batch** - Combines two images into a single batch
-- **DD Get Image Size** - Returns the width and height of an image
+### Image
+| Node | Description |
+|------|-------------|
+| DD Image Resize | Resize with nearest/bilinear/bicubic/area interpolation |
+| DD Image Batch | Combine two images into a batch |
+| DD Get Image Size | Return width and height |
 
-### Math Nodes
-- **DD Integer Math** - Performs math operations on two integers (add, subtract, multiply, divide, modulo, power, min, max)
-- **DD Float Math** - Performs math operations on two floats
-- **DD Int to Float** - Converts an integer to a float
-- **DD Float to Int** - Converts a float to an integer with rounding mode selection
+### Math
+| Node | Description |
+|------|-------------|
+| DD Integer Math | Arithmetic operations on integers |
+| DD Float Math | Arithmetic operations on floats |
+| DD Int to Float | Type conversion |
+| DD Float to Int | Type conversion with rounding modes |
 
 ## Installation
 
-Clone this repository into your ComfyUI `custom_nodes` directory:
+Clone into your ComfyUI `custom_nodes` directory:
 
 ```bash
 cd ComfyUI/custom_nodes
@@ -33,4 +39,4 @@ Restart ComfyUI to load the nodes.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+[MIT](LICENSE)

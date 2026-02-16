@@ -15,17 +15,12 @@ class DD_TextConcatenate:
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("text",)
-    FUNCTION = "concatenate"
+    FUNCTION = "execute"
     CATEGORY = "DD Nodes/Text"
 
-    def concatenate(self, text_a, text_b, separator=", "):
-        if not text_a and not text_b:
-            return ("",)
-        if not text_a:
-            return (text_b,)
-        if not text_b:
-            return (text_a,)
-        return (f"{text_a}{separator}{text_b}",)
+    def execute(self, text_a, text_b, separator=", "):
+        parts = [p for p in (text_a, text_b) if p]
+        return (separator.join(parts),)
 
 
 class DD_TextReplace:
@@ -37,17 +32,17 @@ class DD_TextReplace:
             "required": {
                 "text": ("STRING", {"default": "", "multiline": True}),
                 "find": ("STRING", {"default": ""}),
-                "replace": ("STRING", {"default": ""}),
+                "replace_with": ("STRING", {"default": ""}),
             },
         }
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("text",)
-    FUNCTION = "replace"
+    FUNCTION = "execute"
     CATEGORY = "DD Nodes/Text"
 
-    def replace(self, text, find, replace):
-        return (text.replace(find, replace),)
+    def execute(self, text, find, replace_with):
+        return (text.replace(find, replace_with),)
 
 
 class DD_ShowText:
@@ -63,11 +58,11 @@ class DD_ShowText:
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("text",)
-    FUNCTION = "show"
+    FUNCTION = "execute"
     CATEGORY = "DD Nodes/Text"
     OUTPUT_NODE = True
 
-    def show(self, text):
+    def execute(self, text):
         return {"ui": {"text": [text]}, "result": (text,)}
 
 
