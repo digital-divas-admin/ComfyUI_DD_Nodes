@@ -60,7 +60,8 @@ app.registerExtension({
         // --- Helper: get Y position for an input slot (local coords) ---
         nodeType.prototype._getSlotY = function (slotIndex) {
             const slotHeight = LiteGraph.NODE_SLOT_HEIGHT || 20;
-            return slotHeight * (slotIndex + 0.7);
+            // Standard LiteGraph slot position: center of slot + 4px nudge
+            return slotHeight * (slotIndex + 0.5) + 4;
         };
 
         // --- onNodeCreated: set up dynamic slots, toggles, and buttons ---
