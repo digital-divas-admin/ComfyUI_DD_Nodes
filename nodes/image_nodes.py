@@ -124,7 +124,14 @@ class DD_ImagePowerSelector:
     CATEGORY = "DD Nodes/Image"
 
     def execute(self, toggle_states="{}", **kwargs):
-        toggles = json.loads(toggle_states)
+        # toggle_states may arrive as a named param or inside kwargs
+        if "toggle_states" in kwargs:
+            toggle_states = kwargs.pop("toggle_states")
+
+        try:
+            toggles = json.loads(toggle_states) if isinstance(toggle_states, str) else {}
+        except (json.JSONDecodeError, TypeError):
+            toggles = {}
 
         images = []
         # Sort by slot number for consistent ordering

@@ -43,17 +43,27 @@ app.registerExtension({
             if (w) {
                 w.value = JSON.stringify(this._toggleStates);
             }
+            // Also update the stored ref in case widget was cached
+            if (this._toggleWidget) {
+                this._toggleWidget.value = JSON.stringify(this._toggleStates);
+            }
         };
 
         // --- Hide the toggle_states widget visually ---
+        // Keep it in the widgets array so ComfyUI can read its value during
+        // prompt execution. Just make it invisible and zero-height.
         nodeType.prototype._hideToggleWidget = function () {
             if (!this.widgets) return;
-            // Remove the toggle_states widget entirely from the widgets array
-            // so it doesn't render at all. We'll handle serialization ourselves.
-            const idx = this.widgets.findIndex((w) => w.name === "toggle_states");
-            if (idx !== -1) {
-                this._toggleWidget = this.widgets[idx];
-                this.widgets.splice(idx, 1);
+            const w = this.widgets.find((w) => w.name === "toggle_states");
+            if (w) {
+                this._toggleWidget = w;
+                w.computeSize = () => [0, -4];
+                w.draw = () => {};
+                w.type = "converted-widget";
+                const node = this;
+                w.serializeValue = function () {
+                    return JSON.stringify(node._toggleStates || {});
+                };
             }
         };
 
@@ -106,31 +116,6 @@ app.registerExtension({
 
             this.size[0] = Math.max(this.size[0], 240);
             this._syncToggleStates();
-        };
-
-        // --- Override serialize to inject toggle_states ---
-        const origGetExtraConfig = nodeType.prototype.serialize;
-        nodeType.prototype.serialize = function () {
-            // Before serialization, ensure toggle_states widget value is current
-            if (this._toggleWidget) {
-                this._toggleWidget.value = JSON.stringify(this._toggleStates || {});
-                // Temporarily put it back so ComfyUI can serialize it
-                if (!this.widgets.includes(this._toggleWidget)) {
-                    this.widgets.push(this._toggleWidget);
-                }
-            }
-            this._syncToggleStates();
-            const result = origGetExtraConfig
-                ? origGetExtraConfig.apply(this, arguments)
-                : null;
-            // Remove it again after serialization
-            if (this._toggleWidget) {
-                const idx = this.widgets.indexOf(this._toggleWidget);
-                if (idx !== -1) {
-                    this.widgets.splice(idx, 1);
-                }
-            }
-            return result;
         };
 
         // --- Draw toggle indicators on the foreground ---
