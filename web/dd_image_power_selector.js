@@ -1,0 +1,217 @@
+import { app } from "../../../scripts/app.js";
+
+const NODE_NAME = "DD_ImagePowerSelector";
+const DEFAULT_SLOTS = 2;
+
+app.registerExtension({
+    name: "DDNodes.ImagePowerSelector",
+
+    async beforeRegisterNodeDef(nodeType, nodeData, _app) {
+        if (nodeData.name !== NODE_NAME) return;
+
+        // --- onNodeCreated: set up dynamic slots, toggles, and buttons ---
+        const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function () {
+            if (origOnNodeCreated) origOnNodeCreated.apply(this, arguments);
+
+            this._toggleStates = {};
+            this._slotCounter = 0;
+
+            // Add default image input slots
+            for (let i = 0; i < DEFAULT_SLOTS; i++) {
+                this._addImageSlot();
+            }
+
+            // Add +/- button widgets
+            this.addWidget("button", "➕ Add Image", null, () => {
+                this._addImageSlot();
+                this._syncToggleStates();
+                this.setSize(this.computeSize());
+                this.setDirtyCanvas(true, true);
+            });
+
+            this.addWidget("button", "➖ Remove Image", null, () => {
+                this._removeLastImageSlot();
+                this._syncToggleStates();
+                this.setSize(this.computeSize());
+                this.setDirtyCanvas(true, true);
+            });
+
+            // Hide the toggle_states widget
+            this._hideToggleWidget();
+
+            // Ensure minimum width
+            this.size[0] = Math.max(this.size[0], 240);
+
+            this._syncToggleStates();
+        };
+
+        // --- Add an image input slot ---
+        nodeType.prototype._addImageSlot = function () {
+            this._slotCounter++;
+            const name = "image_" + this._slotCounter;
+            this.addInput(name, "IMAGE");
+            this._toggleStates[name] = true;
+        };
+
+        // --- Remove the last image input slot ---
+        nodeType.prototype._removeLastImageSlot = function () {
+            // Find all image inputs
+            const imageInputs = [];
+            if (this.inputs) {
+                for (let i = 0; i < this.inputs.length; i++) {
+                    if (this.inputs[i].name.startsWith("image_")) {
+                        imageInputs.push({ input: this.inputs[i], index: i });
+                    }
+                }
+            }
+            if (imageInputs.length <= 1) return; // Keep at least 1
+
+            const last = imageInputs[imageInputs.length - 1];
+            // Disconnect any link on this input
+            if (last.input.link != null) {
+                this.disconnectInput(last.index);
+            }
+            this.removeInput(last.index);
+            delete this._toggleStates[last.input.name];
+        };
+
+        // --- Sync toggle state to the hidden widget ---
+        nodeType.prototype._syncToggleStates = function () {
+            const w = this.widgets?.find((w) => w.name === "toggle_states");
+            if (w) {
+                w.value = JSON.stringify(this._toggleStates);
+            }
+        };
+
+        // --- Hide the toggle_states widget visually ---
+        nodeType.prototype._hideToggleWidget = function () {
+            const w = this.widgets?.find((w) => w.name === "toggle_states");
+            if (w) {
+                w.type = "converted-widget";
+                w.computeSize = () => [0, -4];
+                w.draw = () => {};
+                // Ensure serialization always returns current toggle states
+                const node = this;
+                w.serializeValue = function () {
+                    return JSON.stringify(node._toggleStates);
+                };
+            }
+        };
+
+        // --- Helper: get Y position for an input slot (local coords) ---
+        nodeType.prototype._getSlotY = function (slotIndex) {
+            const slotHeight = LiteGraph.NODE_SLOT_HEIGHT || 20;
+            return slotHeight * (slotIndex + 0.7);
+        };
+
+        // --- Draw toggle indicators on the foreground ---
+        const origDrawForeground = nodeType.prototype.onDrawForeground;
+        nodeType.prototype.onDrawForeground = function (ctx) {
+            if (origDrawForeground) origDrawForeground.apply(this, arguments);
+            if (!this.inputs) return;
+
+            for (let i = 0; i < this.inputs.length; i++) {
+                const input = this.inputs[i];
+                if (!input.name.startsWith("image_")) continue;
+
+                const isOn = this._toggleStates?.[input.name] !== false;
+                const slotY = this._getSlotY(i);
+                // Position toggle circle to the right of where LiteGraph draws the slot label
+                const toggleX = 75;
+                const radius = 5;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(toggleX, slotY, radius, 0, Math.PI * 2);
+
+                if (isOn) {
+                    ctx.fillStyle = "#4CAF50";
+                    ctx.fill();
+                    ctx.strokeStyle = "#2E7D32";
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = "rgba(100, 100, 100, 0.3)";
+                    ctx.fill();
+                    ctx.strokeStyle = "#666";
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+
+                // Draw ON/OFF label next to toggle
+                ctx.font = "10px Arial";
+                ctx.textAlign = "left";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = isOn ? "#4CAF50" : "#666";
+                ctx.fillText(isOn ? "ON" : "OFF", toggleX + 8, slotY);
+
+                ctx.restore();
+            }
+        };
+
+        // --- Handle mouse clicks on toggle circles ---
+        const origOnMouseDown = nodeType.prototype.onMouseDown;
+        nodeType.prototype.onMouseDown = function (e, localPos, graphCanvas) {
+            if (this.inputs && this._toggleStates) {
+                for (let i = 0; i < this.inputs.length; i++) {
+                    const input = this.inputs[i];
+                    if (!input.name.startsWith("image_")) continue;
+
+                    const toggleX = 75;
+                    const slotY = this._getSlotY(i);
+                    const dx = localPos[0] - toggleX;
+                    const dy = localPos[1] - slotY;
+
+                    // Hit test: ~12px radius for easier clicking
+                    if (dx * dx + dy * dy < 144) {
+                        this._toggleStates[input.name] =
+                            !this._toggleStates[input.name];
+                        this._syncToggleStates();
+                        this.setDirtyCanvas(true, true);
+                        return true; // Consume the event
+                    }
+                }
+            }
+            if (origOnMouseDown)
+                return origOnMouseDown.apply(this, arguments);
+        };
+
+        // --- Restore state when loading from saved workflow ---
+        const origOnConfigure = nodeType.prototype.onConfigure;
+        nodeType.prototype.onConfigure = function (info) {
+            if (origOnConfigure) origOnConfigure.apply(this, arguments);
+
+            // Restore toggle states from the widget value
+            const toggleWidget = this.widgets?.find(
+                (w) => w.name === "toggle_states"
+            );
+            if (toggleWidget && toggleWidget.value) {
+                try {
+                    this._toggleStates = JSON.parse(toggleWidget.value);
+                } catch (e) {
+                    this._toggleStates = {};
+                }
+            }
+
+            // Rebuild _slotCounter from existing inputs
+            let maxSlot = 0;
+            if (this.inputs) {
+                for (const input of this.inputs) {
+                    const match = input.name.match(/^image_(\d+)$/);
+                    if (match) {
+                        maxSlot = Math.max(maxSlot, parseInt(match[1]));
+                        // Ensure toggle state exists for each slot
+                        if (!(input.name in this._toggleStates)) {
+                            this._toggleStates[input.name] = true;
+                        }
+                    }
+                }
+            }
+            this._slotCounter = maxSlot;
+
+            // Hide the toggle_states widget
+            this._hideToggleWidget();
+        };
+    },
+});
