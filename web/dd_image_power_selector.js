@@ -59,9 +59,10 @@ app.registerExtension({
 
         // --- Helper: get Y position for an input slot (local coords) ---
         nodeType.prototype._getSlotY = function (slotIndex) {
-            const slotHeight = LiteGraph.NODE_SLOT_HEIGHT || 20;
-            // Standard LiteGraph slot position: center of slot + 4px nudge
-            return slotHeight * (slotIndex + 0.5) + 4;
+            // Use LiteGraph's own getConnectionPos for exact slot position,
+            // then convert from graph-space to local node-space.
+            const pos = this.getConnectionPos(true, slotIndex);
+            return pos[1] - this.pos[1];
         };
 
         // --- onNodeCreated: set up dynamic slots, toggles, and buttons ---
