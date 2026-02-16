@@ -1,0 +1,19 @@
+"""ComfyUI DD Nodes - Custom nodes for ComfyUI by Digital Divas."""
+
+from .nodes.text_nodes import (
+    NODE_CLASS_MAPPINGS as TEXT_NODES,
+    NODE_DISPLAY_NAME_MAPPINGS as TEXT_NAMES,
+)
+from .nodes.image_nodes import (
+    NODE_CLASS_MAPPINGS as IMAGE_NODES,
+    NODE_DISPLAY_NAME_MAPPINGS as IMAGE_NAMES,
+)
+from .nodes.math_nodes import (
+    NODE_CLASS_MAPPINGS as MATH_NODES,
+    NODE_DISPLAY_NAME_MAPPINGS as MATH_NAMES,
+)
+
+NODE_CLASS_MAPPINGS = {**TEXT_NODES, **IMAGE_NODES, **MATH_NODES}
+NODE_DISPLAY_NAME_MAPPINGS = {**TEXT_NAMES, **IMAGE_NAMES, **MATH_NAMES}
+
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
