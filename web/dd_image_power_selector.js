@@ -9,43 +9,6 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, _app) {
         if (nodeData.name !== NODE_NAME) return;
 
-        // --- onNodeCreated: set up dynamic slots, toggles, and buttons ---
-        const origOnNodeCreated = nodeType.prototype.onNodeCreated;
-        nodeType.prototype.onNodeCreated = function () {
-            if (origOnNodeCreated) origOnNodeCreated.apply(this, arguments);
-
-            this._toggleStates = {};
-            this._slotCounter = 0;
-
-            // Add default image input slots
-            for (let i = 0; i < DEFAULT_SLOTS; i++) {
-                this._addImageSlot();
-            }
-
-            // Add +/- button widgets
-            this.addWidget("button", "➕ Add Image", null, () => {
-                this._addImageSlot();
-                this._syncToggleStates();
-                this.setSize(this.computeSize());
-                this.setDirtyCanvas(true, true);
-            });
-
-            this.addWidget("button", "➖ Remove Image", null, () => {
-                this._removeLastImageSlot();
-                this._syncToggleStates();
-                this.setSize(this.computeSize());
-                this.setDirtyCanvas(true, true);
-            });
-
-            // Hide the toggle_states widget
-            this._hideToggleWidget();
-
-            // Ensure minimum width
-            this.size[0] = Math.max(this.size[0], 240);
-
-            this._syncToggleStates();
-        };
-
         // --- Add an image input slot ---
         nodeType.prototype._addImageSlot = function () {
             this._slotCounter++;
@@ -56,7 +19,6 @@ app.registerExtension({
 
         // --- Remove the last image input slot ---
         nodeType.prototype._removeLastImageSlot = function () {
-            // Find all image inputs
             const imageInputs = [];
             if (this.inputs) {
                 for (let i = 0; i < this.inputs.length; i++) {
@@ -65,10 +27,9 @@ app.registerExtension({
                     }
                 }
             }
-            if (imageInputs.length <= 1) return; // Keep at least 1
+            if (imageInputs.length <= 1) return;
 
             const last = imageInputs[imageInputs.length - 1];
-            // Disconnect any link on this input
             if (last.input.link != null) {
                 this.disconnectInput(last.index);
             }
@@ -86,23 +47,89 @@ app.registerExtension({
 
         // --- Hide the toggle_states widget visually ---
         nodeType.prototype._hideToggleWidget = function () {
-            const w = this.widgets?.find((w) => w.name === "toggle_states");
-            if (w) {
-                w.type = "converted-widget";
-                w.computeSize = () => [0, -4];
-                w.draw = () => {};
-                // Ensure serialization always returns current toggle states
-                const node = this;
-                w.serializeValue = function () {
-                    return JSON.stringify(node._toggleStates);
-                };
+            if (!this.widgets) return;
+            // Remove the toggle_states widget entirely from the widgets array
+            // so it doesn't render at all. We'll handle serialization ourselves.
+            const idx = this.widgets.findIndex((w) => w.name === "toggle_states");
+            if (idx !== -1) {
+                this._toggleWidget = this.widgets[idx];
+                this.widgets.splice(idx, 1);
             }
         };
 
         // --- Helper: get Y position for an input slot (local coords) ---
         nodeType.prototype._getSlotY = function (slotIndex) {
             const slotHeight = LiteGraph.NODE_SLOT_HEIGHT || 20;
-            return slotHeight * (slotIndex + 0.7);
+            // Standard LiteGraph slot position: center of slot + 4px nudge
+            return slotHeight * (slotIndex + 0.5) + 4;
+        };
+
+        // --- onNodeCreated: set up dynamic slots, toggles, and buttons ---
+        const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function () {
+            if (origOnNodeCreated) origOnNodeCreated.apply(this, arguments);
+
+            this._toggleStates = this._toggleStates || {};
+            this._slotCounter = this._slotCounter || 0;
+
+            // Only add default slots if none exist yet (fresh node, not loaded)
+            if (!this.inputs || this.inputs.filter(i => i.name.startsWith("image_")).length === 0) {
+                for (let i = 0; i < DEFAULT_SLOTS; i++) {
+                    this._addImageSlot();
+                }
+            }
+
+            // Add +/- button widgets
+            this.addWidget("button", "➕ Add Image", null, () => {
+                this._addImageSlot();
+                this._syncToggleStates();
+                this.setSize(this.computeSize());
+                this.setDirtyCanvas(true, true);
+            });
+
+            this.addWidget("button", "➖ Remove Image", null, () => {
+                this._removeLastImageSlot();
+                this._syncToggleStates();
+                this.setSize(this.computeSize());
+                this.setDirtyCanvas(true, true);
+            });
+
+            // Hide toggle_states widget after a microtask so ComfyUI has created it
+            const node = this;
+            requestAnimationFrame(() => {
+                node._hideToggleWidget();
+                node._syncToggleStates();
+                node.setSize(node.computeSize());
+                node.setDirtyCanvas(true, true);
+            });
+
+            this.size[0] = Math.max(this.size[0], 240);
+            this._syncToggleStates();
+        };
+
+        // --- Override serialize to inject toggle_states ---
+        const origGetExtraConfig = nodeType.prototype.serialize;
+        nodeType.prototype.serialize = function () {
+            // Before serialization, ensure toggle_states widget value is current
+            if (this._toggleWidget) {
+                this._toggleWidget.value = JSON.stringify(this._toggleStates || {});
+                // Temporarily put it back so ComfyUI can serialize it
+                if (!this.widgets.includes(this._toggleWidget)) {
+                    this.widgets.push(this._toggleWidget);
+                }
+            }
+            this._syncToggleStates();
+            const result = origGetExtraConfig
+                ? origGetExtraConfig.apply(this, arguments)
+                : null;
+            // Remove it again after serialization
+            if (this._toggleWidget) {
+                const idx = this.widgets.indexOf(this._toggleWidget);
+                if (idx !== -1) {
+                    this.widgets.splice(idx, 1);
+                }
+            }
+            return result;
         };
 
         // --- Draw toggle indicators on the foreground ---
@@ -117,7 +144,6 @@ app.registerExtension({
 
                 const isOn = this._toggleStates?.[input.name] !== false;
                 const slotY = this._getSlotY(i);
-                // Position toggle circle to the right of where LiteGraph draws the slot label
                 const toggleX = 75;
                 const radius = 5;
 
@@ -163,13 +189,12 @@ app.registerExtension({
                     const dx = localPos[0] - toggleX;
                     const dy = localPos[1] - slotY;
 
-                    // Hit test: ~12px radius for easier clicking
                     if (dx * dx + dy * dy < 144) {
                         this._toggleStates[input.name] =
                             !this._toggleStates[input.name];
                         this._syncToggleStates();
                         this.setDirtyCanvas(true, true);
-                        return true; // Consume the event
+                        return true;
                     }
                 }
             }
@@ -180,17 +205,41 @@ app.registerExtension({
         // --- Restore state when loading from saved workflow ---
         const origOnConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function (info) {
+            // Initialize before configure restores inputs
+            this._toggleStates = this._toggleStates || {};
+            this._slotCounter = this._slotCounter || 0;
+
             if (origOnConfigure) origOnConfigure.apply(this, arguments);
 
-            // Restore toggle states from the widget value
+            // Restore toggle states from widget values in saved data
+            if (info.widgets_values) {
+                for (const val of info.widgets_values) {
+                    if (typeof val === "string" && val.startsWith("{")) {
+                        try {
+                            const parsed = JSON.parse(val);
+                            if (parsed && typeof parsed === "object") {
+                                this._toggleStates = parsed;
+                                break;
+                            }
+                        } catch (e) {
+                            // Not our JSON, skip
+                        }
+                    }
+                }
+            }
+
+            // Also try from the widget directly
             const toggleWidget = this.widgets?.find(
                 (w) => w.name === "toggle_states"
             );
-            if (toggleWidget && toggleWidget.value) {
+            if (toggleWidget && toggleWidget.value && typeof toggleWidget.value === "string") {
                 try {
-                    this._toggleStates = JSON.parse(toggleWidget.value);
+                    const parsed = JSON.parse(toggleWidget.value);
+                    if (parsed && typeof parsed === "object") {
+                        this._toggleStates = parsed;
+                    }
                 } catch (e) {
-                    this._toggleStates = {};
+                    // ignore
                 }
             }
 
@@ -201,7 +250,6 @@ app.registerExtension({
                     const match = input.name.match(/^image_(\d+)$/);
                     if (match) {
                         maxSlot = Math.max(maxSlot, parseInt(match[1]));
-                        // Ensure toggle state exists for each slot
                         if (!(input.name in this._toggleStates)) {
                             this._toggleStates[input.name] = true;
                         }
@@ -211,7 +259,53 @@ app.registerExtension({
             this._slotCounter = maxSlot;
 
             // Hide the toggle_states widget
-            this._hideToggleWidget();
+            requestAnimationFrame(() => {
+                this._hideToggleWidget();
+                this.setSize(this.computeSize());
+                this.setDirtyCanvas(true, true);
+            });
+        };
+
+        // --- Override getExtraMenuOptions for toggle all ---
+        const origGetExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
+        nodeType.prototype.getExtraMenuOptions = function (_, options) {
+            if (origGetExtraMenuOptions) {
+                origGetExtraMenuOptions.apply(this, arguments);
+            }
+
+            options.unshift(
+                {
+                    content: "Toggle All ON",
+                    callback: () => {
+                        if (this.inputs) {
+                            for (const input of this.inputs) {
+                                if (input.name.startsWith("image_")) {
+                                    this._toggleStates[input.name] = true;
+                                }
+                            }
+                        }
+                        this._syncToggleStates();
+                        this.setDirtyCanvas(true, true);
+                    },
+                },
+                {
+                    content: "Toggle All OFF",
+                    callback: () => {
+                        if (this.inputs) {
+                            for (const input of this.inputs) {
+                                if (input.name.startsWith("image_")) {
+                                    this._toggleStates[input.name] = false;
+                                }
+                            }
+                        }
+                        this._syncToggleStates();
+                        this.setDirtyCanvas(true, true);
+                    },
+                },
+                null // separator
+            );
+
+            return options;
         };
     },
 });
