@@ -20,6 +20,8 @@ class FlexibleOptionalInputType(dict):
     def __getitem__(self, key):
         if key in self.data:
             return self.data[key]
+        if key.startswith("toggle_"):
+            return ("BOOLEAN", {"default": True, "label_on": "ON", "label_off": "OFF"})
         return (self.type,)
 
     def __contains__(self, key):
@@ -140,7 +142,15 @@ class DD_ImagePowerSelector:
             key=lambda k: int(k.split("_")[1]),
         )
         for key in image_keys:
-            if toggles.get(key, True) and kwargs[key] is not None:
+            # Check individual toggle_N kwarg first (Nodes 2.0 widgets),
+            # then fall back to toggle_states JSON (legacy LiteGraph canvas)
+            slot_num = key.split("_")[1]
+            toggle_key = "toggle_" + slot_num
+            if toggle_key in kwargs:
+                is_on = kwargs[toggle_key]
+            else:
+                is_on = toggles.get(key, True)
+            if is_on and kwargs[key] is not None:
                 images.append(kwargs[key])
 
         if not images:
