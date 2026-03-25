@@ -97,27 +97,15 @@ app.registerExtension({
             }
         };
 
-        // --- Hide or show toggle widgets based on rendering mode ---
+        // --- Always hide toggle widgets — canvas-drawn toggles handle the UI ---
         nodeType.prototype._applyToggleWidgetVisibility = function () {
             if (!this.widgets) return;
-            const vueMode = isVueNodesEnabled();
 
             for (const w of this.widgets) {
                 if (!w._ddToggleWidget) continue;
-
-                if (vueMode) {
-                    // Nodes 2.0: show toggle widgets as native Vue toggles
-                    delete w._origComputeSize;
-                    delete w._origDraw;
-                    w.computeSize = undefined;
-                    w.draw = undefined;
-                    w.type = "toggle";
-                } else {
-                    // LiteGraph: hide toggle widgets (canvas circles handle the UI)
-                    w.computeSize = () => [0, -4];
-                    w.draw = () => {};
-                    w.type = "converted-widget";
-                }
+                w.computeSize = () => [0, -4];
+                w.draw = () => {};
+                w.type = "converted-widget";
             }
         };
 
@@ -187,11 +175,15 @@ app.registerExtension({
             this._syncToggleStates();
         };
 
-        // --- Draw toggle indicators on the foreground (LiteGraph only) ---
+        // --- Draw toggle switches on the foreground (all modes) ---
         const origDrawForeground = nodeType.prototype.onDrawForeground;
         nodeType.prototype.onDrawForeground = function (ctx) {
             if (origDrawForeground) origDrawForeground.apply(this, arguments);
             if (!this.inputs) return;
+
+            const trackW = 28;
+            const trackH = 14;
+            const knobRadius = 5;
 
             for (let i = 0; i < this.inputs.length; i++) {
                 const input = this.inputs[i];
@@ -199,52 +191,52 @@ app.registerExtension({
 
                 const isOn = this._toggleStates?.[input.name] !== false;
                 const slotY = this._getSlotY(i);
-                const toggleX = this.size[0] - 25;
-                const radius = 5;
+                const trackX = this.size[0] - trackW - 10;
+                const trackY = slotY - trackH / 2;
 
                 ctx.save();
+
+                // Draw pill-shaped track
+                const trackRadius = trackH / 2;
                 ctx.beginPath();
-                ctx.arc(toggleX, slotY, radius, 0, Math.PI * 2);
+                ctx.roundRect(trackX, trackY, trackW, trackH, trackRadius);
+                ctx.fillStyle = isOn ? "#4CAF50" : "rgba(100, 100, 100, 0.5)";
+                ctx.fill();
 
-                if (isOn) {
-                    ctx.fillStyle = "#4CAF50";
-                    ctx.fill();
-                    ctx.strokeStyle = "#2E7D32";
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-                } else {
-                    ctx.fillStyle = "rgba(100, 100, 100, 0.3)";
-                    ctx.fill();
-                    ctx.strokeStyle = "#666";
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-                }
-
-                // Draw ON/OFF label to the left of toggle
-                ctx.font = "10px Arial";
-                ctx.textAlign = "right";
-                ctx.textBaseline = "middle";
-                ctx.fillStyle = isOn ? "#4CAF50" : "#666";
-                ctx.fillText(isOn ? "ON" : "OFF", toggleX - 8, slotY);
+                // Draw knob circle
+                const knobX = isOn
+                    ? trackX + trackW - trackRadius
+                    : trackX + trackRadius;
+                ctx.beginPath();
+                ctx.arc(knobX, slotY, knobRadius, 0, Math.PI * 2);
+                ctx.fillStyle = "#fff";
+                ctx.fill();
 
                 ctx.restore();
             }
         };
 
-        // --- Handle mouse clicks on toggle circles (LiteGraph only) ---
+        // --- Handle mouse clicks on toggle switches (all modes) ---
         const origOnMouseDown = nodeType.prototype.onMouseDown;
         nodeType.prototype.onMouseDown = function (e, localPos, graphCanvas) {
             if (this.inputs && this._toggleStates) {
+                const trackW = 28;
+                const trackH = 14;
+
                 for (let i = 0; i < this.inputs.length; i++) {
                     const input = this.inputs[i];
                     if (!input.name.startsWith("image_")) continue;
 
-                    const toggleX = this.size[0] - 25;
                     const slotY = this._getSlotY(i);
-                    const dx = localPos[0] - toggleX;
-                    const dy = localPos[1] - slotY;
+                    const trackX = this.size[0] - trackW - 10;
+                    const trackY = slotY - trackH / 2;
 
-                    if (dx * dx + dy * dy < 144) {
+                    if (
+                        localPos[0] >= trackX &&
+                        localPos[0] <= trackX + trackW &&
+                        localPos[1] >= trackY &&
+                        localPos[1] <= trackY + trackH
+                    ) {
                         this._toggleStates[input.name] =
                             !this._toggleStates[input.name];
                         this._syncToggleStates();
