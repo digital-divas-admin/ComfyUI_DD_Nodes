@@ -199,7 +199,7 @@ app.registerExtension({
 
                 const isOn = this._toggleStates?.[input.name] !== false;
                 const slotY = this._getSlotY(i);
-                const toggleX = 75;
+                const toggleX = this.size[0] - 25;
                 const radius = 5;
 
                 ctx.save();
@@ -220,12 +220,12 @@ app.registerExtension({
                     ctx.stroke();
                 }
 
-                // Draw ON/OFF label next to toggle
+                // Draw ON/OFF label to the left of toggle
                 ctx.font = "10px Arial";
-                ctx.textAlign = "left";
+                ctx.textAlign = "right";
                 ctx.textBaseline = "middle";
                 ctx.fillStyle = isOn ? "#4CAF50" : "#666";
-                ctx.fillText(isOn ? "ON" : "OFF", toggleX + 8, slotY);
+                ctx.fillText(isOn ? "ON" : "OFF", toggleX - 8, slotY);
 
                 ctx.restore();
             }
@@ -239,7 +239,7 @@ app.registerExtension({
                     const input = this.inputs[i];
                     if (!input.name.startsWith("image_")) continue;
 
-                    const toggleX = 75;
+                    const toggleX = this.size[0] - 25;
                     const slotY = this._getSlotY(i);
                     const dx = localPos[0] - toggleX;
                     const dy = localPos[1] - slotY;
